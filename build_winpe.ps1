@@ -71,7 +71,7 @@ $adk_reg_key = "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Unin
 if(-not (Test-Path -Path $adk_reg_key))
 {
   Invoke-WebRequest -UseBasicParsing -uri $adk_url -OutFile $pe_src\$adk_file
-  "$pe_src\adksetup.exe /quiet /norestart /features $adk_features /log $adk_install_log"
+  Start-Process -FilePath "$pe_src\$adk_file" -ArgumentList "/quiet /norestart /features `"$adk_features`" /log `"$adk_install_log`"" -wait
 }
 $env:Path += $dism_path;$bcd_path;$wsim_path;$::path
 #$env:Path += "c:\Program Files (x86)\7-Zip"
