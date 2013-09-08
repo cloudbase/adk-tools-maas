@@ -12,10 +12,20 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-  $pe_dir              = 'c:\winpe'
-  $pe_programs         = 'c:\winpe\build\mount\Program Files (x86)'
+# $built_for crowbar must be set to $true if the Windows PE target usage is 
+# corwbar or $false otherwise
+# $add_additional_drivers enables adding additional drivers. 7-zip is required
+# in this case and Drivers.zip file to be placed in ${pe_drivers}
+# $add_virtio_drivers enables adding the virtio drivers into the image (see 
+# $virtio_driverfile for version information)
+  $built_for_crowbar     = $true
+  $add_aditional_drivers = $false
+  $add_virtio_drivers = $false
+  $virtio_driverfile = 'virtio-win-0.1-59.iso'
 
   # Our WinPE Folder Structure
+  $pe_dir              = 'c:\winpe'
+  $pe_programs         = 'c:\winpe\build\mount\Program Files (x86)'
   $pe_src              = "$pe_dir\src"
   $pe_drivers          = "$pe_dir\src\drivers"
   $pe_bin              = "$pe_dir\bin"
@@ -43,15 +53,6 @@
   $wism_path           = "$pe_deployment_tools\WSIM"
   $startnet_cmd        = "$pe_mount\Windows\System32\startnet.cmd"
 
-  # Crowbar server specific info
-  $crowbar_server      = "admin"
-  $crowbar_share       = "reminst"
-  $crowbar_mountpoint  = "p:"
-  $crowbar_folder      = "windows-6.2"
-  $crowbar_source      = "source"
-  $crowbar_unattend    = "unattend"
-  $crowbar_boot        = "boot"
-
   #Location of the install media for the OS:
   $install_media       = "D:"
 
@@ -68,6 +69,31 @@
   $winpe_storagewmi       = "C:\Program Files (x86)\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-StorageWMI.cab"
   $winpe_storagewmi_enus  = "C:\Program Files (x86)\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-StorageWMI_en-us.cab"
 
+if ($built_for_crowbar)
+{
+  # Crowbar server specific info
+  $crowbar_server_ip   = "192.168.124.10"
+  $crowbar_share       = "reminst"
+  $crowbar_mountpoint  = "p:"
+  # crowbar folder default values are:
+  # windows-6.2 for Windows Server 2012
+  # hyperv-6.2 for Hyper-V Server 2012
+  $crowbar_folder      = "windows-6.2"
+  $crowbar_boot        = "boot"
+  $crowbar_source      = "source"
+  $crowbar_unattend    = "unattend"
+  $crowbar_extra       = "extra"
+}
+else
+{
+  $pxe_server_ip       = "192.168.1.1"
+  $pxe_server_share    = "reminst"
+  $pxe_server_source   = "source"
+  $pxe_server_unattend = "unattend"
+  $pxe_mount_point     = "p:"
+}
+
+#Cleanup before starting any processing
 rmdir $pe_dir -Recurse
 
 if (!(Test-Path -path $pe_dir)) {New-Item $pe_dir -Type Directory}
@@ -88,17 +114,18 @@ if(-not (Test-Path -Path $adk_reg_key))
   Start-Process -FilePath "$pe_src\$adk_file" -ArgumentList "/quiet /norestart /features `"$adk_features`" /log `"$adk_install_log`"" -wait
 }
 $env:Path += $dism_path;$bcd_path;$wsim_path;$::path
-#$env:Path += "c:\Program Files (x86)\7-Zip"
+
+if($add_aditional_drivers)
+{
+  $env:Path += "c:\Program Files (x86)\7-Zip"
+}
 
 if (!(Test-Path -path "$pe_pxe\Boot")) {New-Item "$pe_pxe\Boot" -Type Directory}
-
 if (!(Test-Path -path "$pe_build\Media")) {New-Item "$pe_build\Media" -Type Directory}
+
 Copy-Item "$pe_root\amd64\Media" "$pe_build" -Recurse
-
 Copy-Item "$pe_root\amd64\en-us\winpe.wim" "$pe_build\winpe.wim"
-
 Copy-Item "$pe_deployment_tools\amd64\Oscdimg\etfsboot.com" "$pe_build\etfsboot.com"
-
 Copy-Item "$pe_deployment_tools\amd64\Oscdimg\oscdimg.exe" "$pe_build\oscdimg.exe"
 
 cmd.exe /c "C:\Program Files (x86)\Windows Kits\8.0\Assessment and Deployment Kit\Deployment Tools\DandISetEnv.bat"
@@ -106,55 +133,41 @@ cmd.exe /c "C:\Program Files (x86)\Windows Kits\8.0\Assessment and Deployment Ki
 dism.exe /Mount-Wim /WimFile:$pe_build\winpe.wim /index:1 /MountDir:$pe_mount
 
 Copy-Item "$pe_mount\Windows\Boot\PXE\pxeboot.com" "$pe_pxe\Boot\pxeboot.com"
-
 Copy-Item "$pe_mount\Windows\Boot\PXE\pxeboot.n12" "$pe_pxe\Boot\pxeboot.0"
-
 Copy-Item "$pe_mount\Windows\Boot\PXE\bootmgr.exe" "$pe_pxe\Boot\bootmgr.exe"
-
 Copy-Item "$pe_mount\Windows\Boot\PXE\abortpxe.com"  "$pe_pxe\Boot\abortpxe.com"
-
 Copy-Item "$pe_root\amd64\Media\Boot\boot.sdi" "$pe_pxe\Boot\boot.sdi"
 
 cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_wmi`""
-
 cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_wmi_enus`""
-
 cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_hta`""
-
 cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_hta_enus`""
-
 cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_scripting`""
-
 cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_netfx4`""
-
 cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_netfx4_enus`""
-
 cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_powershell3`""
-
 cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_powershell3_enus`""
-
 cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_storagewmi`""
-
 cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_storagewmi_enus`""
 
-# 7zip needs to be installed and also the Drivers.zip file to be placed in ${pe_drivers}
+if ($add_aditional_drivers)
+{
+  pushd
+  cd $pe_src
+  cmd.exe /c "7z.exe x $pe_drivers\Drivers.zip",
+  popd
+  if($add_virtio_drivers)
+  {
+    $virtio_driverurl = 'http://alt.fedoraproject.org/pub/alt/virtio-win/latest/images/bin/'
+    Invoke-WebRequest -UseBasicParsing -uri $virtio_driverurl/$virtio_driverfile -OutFile $pe_drivers\$virtio_driverfile
+    pushd
+    cd $pe_drivers
+    cmd.exe /c "7z.exe x $pe_drivers\$virtio_driverfile"
+    popd
+  }
 
-#pushd
-#cd $pe_src
-#cmd.exe /c "7z.exe x $pe_drivers\Drivers.zip",
-#popd
-
-#$driverfile = 'virtio-win-0.1-59.iso'
-#$driverurl = 'http://alt.fedoraproject.org/pub/alt/virtio-win/latest/images/bin/'
-
-#Invoke-WebRequest -UseBasicParsing -uri $driverurl/$driverfile -OutFile $pe_drivers\$driverfile
-
-#pushd
-#cd $pe_drivers
-#cmd.exe /c "`"c:\Program Files\7-Zip\7z.exe`" x $pe_drivers\$driverfile"
-#popd
-
-#cmd.exe /c dism.exe /image:$pe_mount /Add-Driver /driver:$pe_drivers /recurse /forceunsigned
+  cmd.exe /c dism.exe /image:$pe_mount /Add-Driver /driver:$pe_drivers /recurse /forceunsigned
+}
 
 # bcdcreate.cmd needs to be placed in $pe_bin\bcdcreate.cmd
 Copy-Item .\bcdcreate.cmd $pe_bin\bcdcreate.cmd
@@ -164,20 +177,40 @@ cmd.exe /c $pe_bin\bcdcreate.cmd
 popd
 
 Add-Content $startnet_cmd "`n"
-Add-Content $startnet_cmd "`n net use $crowbar_mountpoint \\$crowbar_server\$crowbar_share"
-Add-Content $startnet_cmd "`n $crowbar_mountpoint\$crowbar_folder\$crowbar_source\setup.exe /unattend:$crowbar_mountpoint\$crowbar_folder\$crowbar_unattend\unattended.xml"
+if($built_for_crowbar)
+{
+  #Extract the key from the unattended.xml file
+  New-PSDrive $crowbar_mountpoint[0] -PSProvider FileSystem -Root "\\$crowbar_server_ip\$crowbar_share"
+  $load_file = Select-String -Path "$crowbar_mountpoint\$crowbar_folder\$crowbar_unattend\unattended.xml" -Pattern "machine"
+  $line_string = $load_file.ToString()
+  $crowbar_key = $line_string.Substring($line_string.IndexOf("machine"), $line_string.IndexOf('" /f')-$line_string.IndexOf("machine"))
+  Remove-PSDrive $crowbar_mountpoint[0]
 
+  Add-Content $startnet_cmd "`n net use $crowbar_mountpoint \\$crowbar_server_ip\$crowbar_share"
+  Add-Content $startnet_cmd "`n $crowbar_mountpoint\$crowbar_folder\$crowbar_source\setup.exe /noreboot /unattend:$crowbar_mountpoint\$crowbar_folder\$crowbar_unattend\unattended.xml"
+  Add-Content $startnet_cmd "`n copy $crowbar_mountpoint\$crowbar_folder\$crowbar_source\$crowbar_extra\set_state.ps1 \"
+  Add-Content $startnet_cmd "`n powershell -ExcutionPolicy RemoteSigned \set_state.ps1 -CrowbarAdminIP $crowbar_server_ip -CrowbarKey $crowbar_key -OSName $crowbar_folder"
+  Add-Content $startnet_cmd "`n shutdown -r -t 0"
+}
+else
+{
+  Add-Content $startnet_cmd "`n net use $pxe_mount_point \\$pxe_server_ip\$pxe_server_share"
+  Add-Content $startnet_cmd "`n $pxe_mount_point\$pxe_server_source\setup.exe /unattend:$pxe_mount_point\$pxe_server_unattend\unattended.xml"
+}
 cmd.exe /c dism.exe /Unmount-Wim /MountDir:$pe_mount /commit
 
 Copy-Item $pe_build\winpe.wim $pe_pxe\Boot\winpe.wim
 
-#Copy the whole part to the crowbar server:
-net use $crowbar_mountpoint \\$crowbar_server\$crowbar_share
-if (!(Test-Path -path $crowbar_mountpoint\$crowbar_folder\$crowbar_boot)) {New-Item $crowbar_mountpoint\$crowbar_folder\$crowbar_boot -Type Directory}
-if (!(Test-Path -path $crowbar_mountpoint\$crowbar_folder\$crowbar_source)) {New-Item $crowbar_mountpoint\$crowbar_folder\$crowbar_source -Type Directory}
-if (!(Test-Path -path $crowbar_mountpoint\$crowbar_folder\$crowbar_unattend)) {New-Item $crowbar_mountpoint\$crowbar_folder\$crowbar_unattend -Type Directory}
-Copy-Item $pe_pxe\Boot\* $crowbar_mountpoint\$crowbar_folder\$crowbar_boot
-dir $crowbar_mountpoint\$crowbar_folder\$crowbar_boot -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
-Copy-Item $install_media\sources\* $crowbar_mountpoint\$crowbar_folder\$crowbar_source -Recurse
-dir $crowbar_mountpoint\$crowbar_folder\$crowbar_source -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
-net use $crowbar_mountpoint /delete
+if($built_for_crowbar)
+{
+  #Copy the WindowsPE image and boot components to the crowbar server:
+  net use $crowbar_mountpoint \\$crowbar_server_ip\$crowbar_share
+  if (!(Test-Path -path $crowbar_mountpoint\$crowbar_folder\$crowbar_boot)) {New-Item $crowbar_mountpoint\$crowbar_folder\$crowbar_boot -Type Directory}
+  if (!(Test-Path -path $crowbar_mountpoint\$crowbar_folder\$crowbar_source)) {New-Item $crowbar_mountpoint\$crowbar_folder\$crowbar_source -Type Directory}
+  if (!(Test-Path -path $crowbar_mountpoint\$crowbar_folder\$crowbar_unattend)) {New-Item $crowbar_mountpoint\$crowbar_folder\$crowbar_unattend -Type Directory}
+  Copy-Item $pe_pxe\Boot\* $crowbar_mountpoint\$crowbar_folder\$crowbar_boot
+  dir $crowbar_mountpoint\$crowbar_folder\$crowbar_boot -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
+  Copy-Item $install_media\sources\* $crowbar_mountpoint\$crowbar_folder\$crowbar_source -Recurse
+  dir $crowbar_mountpoint\$crowbar_folder\$crowbar_source -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
+  net use $crowbar_mountpoint /delete
+}
