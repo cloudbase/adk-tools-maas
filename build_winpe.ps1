@@ -190,7 +190,7 @@ if($built_for_crowbar)
   Add-Content $startnet_cmd "`n $crowbar_mountpoint\$crowbar_folder\$crowbar_source\setup.exe /noreboot /unattend:$crowbar_mountpoint\$crowbar_folder\$crowbar_unattend\unattended.xml"
   Add-Content $startnet_cmd "`n copy $crowbar_mountpoint\$crowbar_folder\$crowbar_source\$crowbar_extra\set_state.ps1 \"
   Add-Content $startnet_cmd "`n powershell -ExcutionPolicy RemoteSigned \set_state.ps1 -CrowbarAdminIP $crowbar_server_ip -CrowbarKey $crowbar_key -OSName $crowbar_folder"
-  Add-Content $startnet_cmd "`n shutdown -r -t 0"
+  Add-Content $startnet_cmd "`exit"
 }
 else
 {
@@ -204,13 +204,13 @@ Copy-Item $pe_build\winpe.wim $pe_pxe\Boot\winpe.wim
 if($built_for_crowbar)
 {
   #Copy the WindowsPE image and boot components to the crowbar server:
-  net use $crowbar_mountpoint \\$crowbar_server_ip\$crowbar_share
+  New-PSDrive $crowbar_mountpoint[0] -PSProvider FileSystem -Root "\\$crowbar_server_ip\$crowbar_share"
   if (!(Test-Path -path $crowbar_mountpoint\$crowbar_folder\$crowbar_boot)) {New-Item $crowbar_mountpoint\$crowbar_folder\$crowbar_boot -Type Directory}
   if (!(Test-Path -path $crowbar_mountpoint\$crowbar_folder\$crowbar_source)) {New-Item $crowbar_mountpoint\$crowbar_folder\$crowbar_source -Type Directory}
   if (!(Test-Path -path $crowbar_mountpoint\$crowbar_folder\$crowbar_unattend)) {New-Item $crowbar_mountpoint\$crowbar_folder\$crowbar_unattend -Type Directory}
-  Copy-Item $pe_pxe\Boot\* $crowbar_mountpoint\$crowbar_folder\$crowbar_boot
+  Copy-Item $pe_pxe\Boot\* $crowbar_mountpoint\$crowbar_folder\$crowbar_boot -Force
   dir $crowbar_mountpoint\$crowbar_folder\$crowbar_boot -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
-  Copy-Item $install_media\sources\* $crowbar_mountpoint\$crowbar_folder\$crowbar_source -Recurse
+  Copy-Item $install_media\sources\* $crowbar_mountpoint\$crowbar_folder\$crowbar_source -Recurse -Force
   dir $crowbar_mountpoint\$crowbar_folder\$crowbar_source -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
-  net use $crowbar_mountpoint /delete
+  Remove-PSDrive $crowbar_mountpoint[0]
 }
