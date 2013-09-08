@@ -188,8 +188,8 @@ if($built_for_crowbar)
 
   Add-Content $startnet_cmd "`n net use $crowbar_mountpoint \\$crowbar_server_ip\$crowbar_share"
   Add-Content $startnet_cmd "`n $crowbar_mountpoint\$crowbar_folder\$crowbar_source\setup.exe /noreboot /unattend:$crowbar_mountpoint\$crowbar_folder\$crowbar_unattend\unattended.xml"
-  Add-Content $startnet_cmd "`n copy $crowbar_mountpoint\$crowbar_folder\$crowbar_source\$crowbar_extra\set_state.ps1 \"
-  Add-Content $startnet_cmd "`n powershell -ExcutionPolicy RemoteSigned \set_state.ps1 -CrowbarAdminIP $crowbar_server_ip -CrowbarKey $crowbar_key -OSName $crowbar_folder"
+  Add-Content $startnet_cmd "`n copy $crowbar_mountpoint\$crowbar_folder\$crowbar_extra\set_state.ps1 \"
+  Add-Content $startnet_cmd "`n powershell -ExecutionPolicy RemoteSigned \set_state.ps1 -CrowbarAdminIP $crowbar_server_ip -CrowbarKey $crowbar_key -OSName $crowbar_folder"
   Add-Content $startnet_cmd "`exit"
 }
 else
