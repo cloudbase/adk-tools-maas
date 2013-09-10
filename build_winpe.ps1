@@ -12,13 +12,19 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+Param(
+  [switch]$UseCrowbar,
+  [string]$CrowbarAdminIP = "192.168.124.10",
+  [string]$CrowbarFolder = "windows-6.2"
+)
+
 # $built_for crowbar must be set to $true if the Windows PE target usage is 
 # corwbar or $false otherwise
 # $add_additional_drivers enables adding additional drivers. 7-zip is required
 # in this case and Drivers.zip file to be placed in ${pe_drivers}
 # $add_virtio_drivers enables adding the virtio drivers into the image (see 
 # $virtio_driverfile for version information)
-  $built_for_crowbar     = $true
+  $built_for_crowbar     = $UseCrowbar
   $add_aditional_drivers = $false
   $add_virtio_drivers = $false
   $virtio_driverfile = 'virtio-win-0.1-59.iso'
@@ -72,13 +78,13 @@
 if ($built_for_crowbar)
 {
   # Crowbar server specific info
-  $crowbar_server_ip   = "192.168.124.10"
+  $crowbar_server_ip   = $CrowbarAdminIP
   $crowbar_share       = "reminst"
   $crowbar_mountpoint  = "p:"
   # crowbar folder default values are:
   # windows-6.2 for Windows Server 2012
   # hyperv-6.2 for Hyper-V Server 2012
-  $crowbar_folder      = "windows-6.2"
+  $crowbar_folder      = $CrowbarFolder
   $crowbar_boot        = "boot"
   $crowbar_source      = "source"
   $crowbar_unattend    = "unattend"
