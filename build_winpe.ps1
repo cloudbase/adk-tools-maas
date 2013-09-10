@@ -180,17 +180,10 @@ popd
 Add-Content $startnet_cmd "`n"
 if($built_for_crowbar)
 {
-  #Extract the key from the unattended.xml file
-  New-PSDrive $crowbar_mountpoint[0] -PSProvider FileSystem -Root "\\$crowbar_server_ip\$crowbar_share"
-  $load_file = Select-String -Path "$crowbar_mountpoint\$crowbar_folder\$crowbar_unattend\unattended.xml" -Pattern "machine"
-  $line_string = $load_file.ToString()
-  $crowbar_key = $line_string.Substring($line_string.IndexOf("machine"), $line_string.IndexOf('" /f')-$line_string.IndexOf("machine"))
-  Remove-PSDrive $crowbar_mountpoint[0]
-
   Add-Content $startnet_cmd "`n net use $crowbar_mountpoint \\$crowbar_server_ip\$crowbar_share"
   Add-Content $startnet_cmd "`n $crowbar_mountpoint\$crowbar_folder\$crowbar_source\setup.exe /noreboot /unattend:$crowbar_mountpoint\$crowbar_folder\$crowbar_unattend\unattended.xml"
   Add-Content $startnet_cmd "`n copy $crowbar_mountpoint\$crowbar_folder\$crowbar_extra\set_state.ps1 \"
-  Add-Content $startnet_cmd "`n powershell -ExecutionPolicy RemoteSigned \set_state.ps1 -CrowbarAdminIP $crowbar_server_ip -CrowbarKey $crowbar_key -OSName $crowbar_folder"
+  Add-Content $startnet_cmd "`n powershell -ExecutionPolicy RemoteSigned \set_state.ps1"
   Add-Content $startnet_cmd "`exit"
 }
 else
