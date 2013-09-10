@@ -170,7 +170,8 @@ if ($add_aditional_drivers)
 }
 
 # bcdcreate.cmd needs to be placed in $pe_bin\bcdcreate.cmd
-Copy-Item .\bcdcreate.cmd $pe_bin\bcdcreate.cmd
+$script_dir = Split-Path -Parent $MyInvocation.MyCommand.Path
+Copy-Item $script_dir\bcdcreate.cmd $pe_bin\bcdcreate.cmd
 pushd
 cd $pe_pxe\Boot
 cmd.exe /c $pe_bin\bcdcreate.cmd
