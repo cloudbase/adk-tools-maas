@@ -100,7 +100,7 @@ else
 }
 
 #Cleanup before starting any processing
-rmdir $pe_dir -Recurse
+rmdir $pe_dir -Recurse -Force
 
 if (!(Test-Path -path $pe_dir)) {New-Item $pe_dir -Type Directory}
 if (!(Test-Path -path $pe_src)) {New-Item $pe_src -Type Directory}
