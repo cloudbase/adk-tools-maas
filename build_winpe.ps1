@@ -15,6 +15,7 @@
 Param(
   [string]$SambaServer = "192.168.100.1",
   [string]$DestDir = "windows-6.2",
+  [string]$CDrom = "D:",
   [bool]$AddVirtIO = $false,
   [bool]$AditionalDrivers = $false
 )
@@ -58,7 +59,7 @@ Param(
   $startnet_cmd        = "$pe_mount\Windows\System32\startnet.cmd"
 
   #Location of the install media for the OS:
-  $install_media       = "D:"
+  $install_media       = $CDrom
 
   # Windows PE Packages
   $winpe_wmi              = "C:\Program Files (x86)\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-WMI.cab"
