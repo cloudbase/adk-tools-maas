@@ -13,20 +13,18 @@
 # under the License.
 
 Param(
-  [switch]$UseCrowbar,
-  [string]$CrowbarAdminIP = "192.168.124.10",
-  [string]$CrowbarFolder = "windows-6.2"
+  [string]$SambaServer = "192.168.100.1",
+  [string]$DestDir = "windows-6.2",
+  [bool]$AddVirtIO = $false,
+  [bool]$AditionalDrivers = $false
 )
 
-# $built_for crowbar must be set to $true if the Windows PE target usage is 
-# corwbar or $false otherwise
 # $add_additional_drivers enables adding additional drivers. 7-zip is required
 # in this case and Drivers.zip file to be placed in ${pe_drivers}
 # $add_virtio_drivers enables adding the virtio drivers into the image (see 
 # $virtio_driverfile for version information)
-  $built_for_crowbar     = $UseCrowbar
-  $add_aditional_drivers = $false
-  $add_virtio_drivers = $false
+  $add_aditional_drivers = $AditionalDrivers
+  $add_virtio_drivers = $AddVirtIO
   $virtio_driverfile = 'virtio-win-0.1-59.iso'
 
   # Our WinPE Folder Structure
@@ -75,29 +73,19 @@ Param(
   $winpe_storagewmi       = "C:\Program Files (x86)\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-StorageWMI.cab"
   $winpe_storagewmi_enus  = "C:\Program Files (x86)\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-StorageWMI_en-us.cab"
 
-if ($built_for_crowbar)
-{
-  # Crowbar server specific info
-  $crowbar_server_ip   = $CrowbarAdminIP
-  $crowbar_share       = "reminst"
-  $crowbar_mountpoint  = "p:"
-  # crowbar folder default values are:
-  # windows-6.2 for Windows Server 2012
-  # hyperv-6.2 for Hyper-V Server 2012
-  $crowbar_folder      = $CrowbarFolder
-  $crowbar_boot        = "boot"
-  $crowbar_source      = "source"
-  $crowbar_unattend    = "unattend"
-  $crowbar_extra       = "extra"
-}
-else
-{
-  $pxe_server_ip       = "192.168.1.1"
-  $pxe_server_share    = "reminst"
-  $pxe_server_source   = "source"
-  $pxe_server_unattend = "unattend"
-  $pxe_mount_point     = "p:"
-}
+
+# Crowbar server specific info
+$samba_server_ip   = $SambaServer
+$samba_share       = "reminst"
+$samba_mountpoint  = "p:"
+# crowbar folder default values are:
+# windows-6.2 for Windows Server 2012
+# hyperv-6.2 for Hyper-V Server 2012
+$win_folder      = $DestDir
+$win_boot        = "boot"
+$win_source      = "source"
+$win_unattend    = "unattend"
+$win_extra       = "extra"
 
 #Cleanup before starting any processing
 rmdir $pe_dir -Recurse -Force
@@ -184,33 +172,21 @@ cmd.exe /c $pe_bin\bcdcreate.cmd
 popd
 
 Add-Content $startnet_cmd "`n"
-if($built_for_crowbar)
-{
-  Add-Content $startnet_cmd "`n powershell `"`$DHCPServer = @(Get-WMIObject -Class Win32_NetworkAdapterConfiguration -Filter IPEnabled=True -ComputerName . | Select-Object -Property DHCPServer).DHCPServer[0] ; Write-Host DHCPServer=`$DHCPServer ; net use $crowbar_mountpoint \\`$DHCPServer\$crowbar_share`""
-  Add-Content $startnet_cmd "`n $crowbar_mountpoint\$crowbar_folder\$crowbar_source\setup.exe /noreboot /unattend:$crowbar_mountpoint\$crowbar_folder\$crowbar_unattend\unattended.xml"
-  Add-Content $startnet_cmd "`n copy $crowbar_mountpoint\$crowbar_folder\$crowbar_extra\set_state.ps1 \"
-  Add-Content $startnet_cmd "`n powershell -ExecutionPolicy RemoteSigned \set_state.ps1"
-  Add-Content $startnet_cmd "`n exit"
-}
-else
-{
-  Add-Content $startnet_cmd "`n net use $pxe_mount_point \\$pxe_server_ip\$pxe_server_share"
-  Add-Content $startnet_cmd "`n $pxe_mount_point\$pxe_server_source\setup.exe /unattend:$pxe_mount_point\$pxe_server_unattend\unattended.xml"
-}
+Add-Content $startnet_cmd "`npowershell -ExecutionPolicy RemoteSigned x:\run_install.ps1`n"
+Add-Content $startnet_cmd "`n exit"
+Copy-Item "$script_dir\run_install.ps1" "$pe_mount\run_install.ps1"
+
 cmd.exe /c dism.exe /Unmount-Wim /MountDir:$pe_mount /commit
 
 Copy-Item $pe_build\winpe.wim $pe_pxe\Boot\winpe.wim
 
-if($built_for_crowbar)
-{
-  #Copy the WindowsPE image and boot components to the crowbar server:
-  New-PSDrive $crowbar_mountpoint[0] -PSProvider FileSystem -Root "\\$crowbar_server_ip\$crowbar_share"
-  if (!(Test-Path -path $crowbar_mountpoint\$crowbar_folder\$crowbar_boot)) {New-Item $crowbar_mountpoint\$crowbar_folder\$crowbar_boot -Type Directory}
-  if (!(Test-Path -path $crowbar_mountpoint\$crowbar_folder\$crowbar_source)) {New-Item $crowbar_mountpoint\$crowbar_folder\$crowbar_source -Type Directory}
-  if (!(Test-Path -path $crowbar_mountpoint\$crowbar_folder\$crowbar_unattend)) {New-Item $crowbar_mountpoint\$crowbar_folder\$crowbar_unattend -Type Directory}
-  Copy-Item $pe_pxe\Boot\* $crowbar_mountpoint\$crowbar_folder\$crowbar_boot -Force
-  dir $crowbar_mountpoint\$crowbar_folder\$crowbar_boot -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
-  Copy-Item $install_media\sources\* $crowbar_mountpoint\$crowbar_folder\$crowbar_source -Recurse -Force
-  dir $crowbar_mountpoint\$crowbar_folder\$crowbar_source -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
-  Remove-PSDrive $crowbar_mountpoint[0]
-}
+#Copy the WindowsPE image and boot components to the samba server:
+New-PSDrive $samba_mountpoint[0] -PSProvider FileSystem -Root "\\$samba_server_ip\$samba_share"
+if (!(Test-Path -path $samba_mountpoint\$win_folder\$win_boot)) {New-Item $samba_mountpoint\$win_folder\$win_boot -Type Directory}
+if (!(Test-Path -path $samba_mountpoint\$win_folder\$win_source)) {New-Item $samba_mountpoint\$win_folder\$win_source -Type Directory}
+if (!(Test-Path -path $samba_mountpoint\$win_folder\$win_unattend)) {New-Item $samba_mountpoint\$win_folder\$win_unattend -Type Directory}
+Copy-Item $pe_pxe\Boot\* $samba_mountpoint\$win_folder\$win_boot -Force
+dir $samba_mountpoint\$win_folder\$win_boot -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
+Copy-Item $install_media\sources\* $samba_mountpoint\$win_folder\$win_source -Recurse -Force
+dir $samba_mountpoint\$win_folder\$win_source -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
+Remove-PSDrive $samba_mountpoint[0]
