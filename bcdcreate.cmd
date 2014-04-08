@@ -17,7 +17,7 @@ set BASEDIR=%1
   %BCDEDIT% -create {ramdiskoptions} -d "Ramdisk options"
   %BCDEDIT% -set {ramdiskoptions} ramdisksdidevice boot
   %BCDEDIT% -set {ramdiskoptions} ramdisksdipath \Boot\boot.sdi
-  %BCDEDIT% -set {ramdiskoptions} ramdisktftpblocksize 8192
+  %BCDEDIT% -set {ramdiskoptions} ramdisktftpblocksize 1400
   for /f "tokens=3" %%a in ('%BCDEDIT% -create -d "Windows PE" -application osloader') do set GUID=%%a
   %BCDEDIT% -set %GUID% systemroot \Windows
   %BCDEDIT% -set %GUID% detecthal Yes
