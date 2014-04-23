@@ -1,5 +1,5 @@
 Start-Sleep -s 10
-$regControl = Get-ItemProperty -Path "HKLM:\System\ControlSet001\Control"
+$regControl = Get-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control"
 
 $bootOpts = $regControl.SystemStartOptions
 
@@ -27,7 +27,9 @@ if ($? -eq $false){
 }
 
 cmd.exe /c p:\$sourcePath\setup.exe /noreboot /unattend:x:\unattended.xml
-
-Invoke-WebRequest -Uri $metadataUrl -OutFile x:\dump.json -Method Post -Body "op=netboot_off"
+if ($?)
+{
+	Invoke-WebRequest -Uri $metadataUrl -OutFile x:\dump.json -Method Post -Body "op=netboot_off"
+}
 
 Start-Sleep 5
