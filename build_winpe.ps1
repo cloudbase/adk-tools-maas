@@ -13,22 +13,54 @@
 # under the License.
 
 Param(
-  [string]$UNC = "\\192.168.100.1\WinPE",
-  [string]$DestDir = "windows-6.2",
-  [string]$CDrom = "D:",
-  [bool]$AddVirtIO = $false,
-  [bool]$AditionalDrivers = $false
+  [string]$ImageName = "Windows Server 2012 R2 SERVERSTANDARD", 
+  [string]$InstallMediaPath = "D:",
+  [string]$TargetPath = "\\192.168.100.1\WinPE",  
+  [string]$AditionalDrivers = $null
 )
 
 $ErrorActionPreference = "Stop"
 
-# $add_additional_drivers enables adding additional drivers. 7-zip is required
-# in this case and Drivers.zip file to be placed in ${pe_drivers}
-# $add_virtio_drivers enables adding the virtio drivers into the image (see
-# $virtio_driverfile for version information)
-$add_aditional_drivers	= $AditionalDrivers
-$add_virtio_drivers			= $AddVirtIO
-$virtio_driverfile 				= "virtio-win-0.1-59.iso"
+$scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
+Import-Module "$scriptPath\WimFileInfo.ps1"
+
+$installWimPath = Join-Path $InstallMediaPath "sources\install.wim"
+$images = Get-WimFileImagesInfo $installWimPath
+$image = $images | where { $_.ImageName -eq $ImageName}
+
+if (!$image)
+{
+    throw "Image ""$ImageName"" not found on install media path ""$InstallMediaPath"""
+}
+
+$maasImagesMap = @{}
+$maasImagesMap.ws2012r2stdcore = "Windows Server 2012 R2 SERVERSTANDARDCORE"
+$maasImagesMap.ws2012r2std = "Windows Server 2012 R2 SERVERSTANDARD"
+$maasImagesMap.ws2012r2dccore = "Windows Server 2012 R2 SERVERDATACENTERCORE"
+$maasImagesMap.ws2012r2dc = "Windows Server 2012 R2 SERVERDATACENTER"
+$maasImagesMap.ws2012r2hv = "Hyper-V Server 2012 R2 SERVERHYPERCORE"
+$maasImagesMap.ws2012stdcore = "Windows Server 2012 SERVERSTANDARDCORE"
+$maasImagesMap.ws2012std = "Windows Server 2012 SERVERSTANDARD"
+$maasImagesMap.ws2012dccore = "Windows Server 2012 SERVERDATACENTERCORE"
+$maasImagesMap.ws2012dc = "Windows Server 2012 SERVERDATACENTER"
+$maasImagesMap.ws2012hv = "Hyper-V Server 2012 SERVERHYPERCORE"
+$maasImagesMap.ws2008r2stdcore = "Windows Server 2008 R2 SERVERSTANDARDCORE"
+$maasImagesMap.ws2008r2std = "Windows Server 2008 R2 SERVERSTANDARD"
+$maasImagesMap.ws2008r2dccore = "Windows Server 2008 R2 SERVERDATACENTERCORE"
+$maasImagesMap.ws2008r2dc = "Windows Server 2008 R2 SERVERDATACENTER"
+$maasImagesMap.ws2008r2hv = "Hyper-V Server 2008 R2 SERVERHYPERCORE"
+$maasImagesMap.ws2008r2entcore = "Windows Server 2008 R2 SERVERENTERPRISECORE"
+$maasImagesMap.ws2008r2ent = "Windows Server 2008 R2 SERVERENTERPRISE"
+$maasImagesMap.ws2008r2webcore = "Windows Server 2008 R2 SERVERWEBCORE"
+$maasImagesMap.ws2008r2web = "Windows Server 2008 R2 SERVERWEB"
+
+$maasImageName = $maasImagesMap.Keys | where {$maasImagesMap[$_] -eq $image.ImageName}
+if (!$maasImageName)
+{
+	throw "Image ""$ImageName"" is not currently supported by MaaS"
+}
+
+$imageIndex = $image.ImageIndex
 
 # Our WinPE Folder Structure
 $pe_dir 			= "c:\winpe"
@@ -60,9 +92,6 @@ $bcd_path     				= "$pe_deployment_tools\amd64\BCDBoot"
 $wism_path   				= "$pe_deployment_tools\WSIM"
 $startnet_cmd  			= "$pe_mount\Windows\System32\startnet.cmd"
 
-#Location of the install media for the OS:
-$install_media       = $CDrom
-
 # Windows PE Packages
 $winpe_wmi 						= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-WMI.cab"
 $winpe_wmi_enus 				= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-WMI_en-us.cab"
@@ -77,12 +106,11 @@ $winpe_storagewmi 			= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and
 $winpe_storagewmi_enus 	= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-StorageWMI_en-us.cab"
 
 
-$samba_mountpoint 	= "p:"
 $win_boot  					= "boot"
 $win_source  				= "source"
 $win_unattend  			= "unattend"
 $win_extra  				= "extra"
-$win_folder 				= $DestDir
+$win_folder 				= $maasImageName
 
 # Make sure the image is not mounted from a previous failed run
 cmd.exe /c dism.exe /Unmount-Wim /MountDir:$pe_mount /discard
@@ -112,14 +140,9 @@ if(-not (Test-Path -Path $adk_reg_key))
 
 $env:Path += $dism_path;$bcd_path;$wsim_path;$::path
 
-if($add_aditional_drivers)
-{
-	$env:Path += "${ENV:ProgramFiles(x86)}\7-Zip"
-}
-
 if (!(Test-Path -path "$pe_pxe\Boot")) {New-Item "$pe_pxe\Boot" -Type Directory}
 
-Copy-Item "$pe_root\amd64\Media" $pe_build -Recurse
+Copy-Item "$pe_root\amd64\Media" "$pe_build\" -Recurse
 Copy-Item "$pe_root\amd64\en-us\winpe.wim" $pe_build
 Copy-Item "$pe_deployment_tools\amd64\Oscdimg\etfsboot.com" $pe_build
 Copy-Item "$pe_deployment_tools\amd64\Oscdimg\oscdimg.exe" $pe_build
@@ -127,7 +150,7 @@ Copy-Item "$pe_deployment_tools\amd64\Oscdimg\oscdimg.exe" $pe_build
 cmd.exe /c "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Deployment Tools\DandISetEnv.bat"
 if ($LastExitCode) { throw "DandISetEnv failed" }
 
-dism.exe /Mount-Wim /WimFile:$pe_build\winpe.wim /index:1 /MountDir:$pe_mount
+dism.exe /Mount-Wim /WimFile:$pe_build\winpe.wim /index:$imageIndex /MountDir:$pe_mount
 if ($LastExitCode) { throw "dism failed" }
 
 try
@@ -171,27 +194,12 @@ try
 	cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_storagewmi_enus`""
 	if ($LastExitCode) { throw "dism failed" }
 
-	if ($add_aditional_drivers)
+	if ($AdditionalDriversPath)
 	{
-		pushd
-		cd $pe_src
-		cmd.exe /c "7z.exe x $pe_drivers\Drivers.zip",
-		if ($LastExitCode) { throw "7z failed" }
-		popd
-
-		if($add_virtio_drivers)
-		{
-			$virtio_driverurl = "http://alt.fedoraproject.org/pub/alt/virtio-win/latest/images/bin/"
-			Invoke-WebRequest -UseBasicParsing -uri $virtio_driverurl/$virtio_driverfile -OutFile $pe_drivers\$virtio_driverfile
-			pushd
-			cd $pe_drivers
-			cmd.exe /c "7z.exe x $pe_drivers\$virtio_driverfile"
-			if ($LastExitCode) { throw "7z failed" }
-			popd
-		}
-
+		# Copy the drivers to a local path
+		Copy-Item (join-Path $AdditionalDriversPath *) "$pe_drivers\" -Recurse
 		cmd.exe /c dism.exe /image:$pe_mount /Add-Driver /driver:$pe_drivers /recurse /forceunsigned
-		if ($LastExitCode) { throw "dism failed" }	
+		if ($LastExitCode) { throw "dism failed in adding external drivers" }
 	}
 
 	# bcdcreate.cmd needs to be placed in $pe_bin\bcdcreate.cmd
@@ -220,20 +228,17 @@ catch
 
 Copy-Item $pe_build\winpe.wim $pe_pxe\Boot\winpe.wim
 
-#Copy the WindowsPE image and boot components to the samba server:
-New-PSDrive $samba_mountpoint[0] -PSProvider FileSystem -Root $UNC
+#Copy the WindowsPE image and boot components to the target path:
 
-try
-{
-	if (!(Test-Path -path $samba_mountpoint\$win_folder\$win_boot)) {New-Item $samba_mountpoint\$win_folder\$win_boot -Type Directory}
-	if (!(Test-Path -path $samba_mountpoint\$win_folder\$win_source)) {New-Item $samba_mountpoint\$win_folder\$win_source -Type Directory}
-	if (!(Test-Path -path $samba_mountpoint\$win_folder\$win_unattend)) {New-Item $samba_mountpoint\$win_folder\$win_unattend -Type Directory}
-	Copy-Item $pe_pxe\Boot\* $samba_mountpoint\$win_folder\$win_boot -Force
-	dir $samba_mountpoint\$win_folder\$win_boot -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
-	Copy-Item $install_media\sources\* $samba_mountpoint\$win_folder\$win_source -Recurse -Force
-	dir $samba_mountpoint\$win_folder\$win_source -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
-}
-finally
-{
-	Remove-PSDrive $samba_mountpoint[0]
-}	
+$dest =  "$TargetPath\$win_folder"
+if (Test-Path -path $dest) { rmdir $dest -Recurse -Force }
+
+New-Item $dest\$win_boot -Type Directory
+New-Item $dest\$win_source -Type Directory
+New-Item $dest\$win_unattend -Type Directory
+Copy-Item $pe_pxe\Boot\* $dest\$win_boot
+dir $dest\$win_boot -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
+Copy-Item $InstallMediaPath\sources\* $dest\$win_source -Recurse
+dir $dest\$win_source -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
+
+Write-Host "WinPE image generated and copied to $dest"
