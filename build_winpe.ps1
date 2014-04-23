@@ -13,7 +13,7 @@
 # under the License.
 
 Param(
-  [string]$SambaServer = "192.168.100.1",
+  [string]$UNC = "\\192.168.100.1\WinPE",
   [string]$DestDir = "windows-6.2",
   [string]$CDrom = "D:",
   [bool]$AddVirtIO = $false,
@@ -75,9 +75,6 @@ Param(
   $winpe_storagewmi_enus  = "C:\Program Files (x86)\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-StorageWMI_en-us.cab"
 
 
-# Crowbar server specific info
-$samba_server_ip   = $SambaServer
-$samba_share       = "reminst"
 $samba_mountpoint  = "p:"
 # crowbar folder default values are:
 # windows-6.2 for Windows Server 2012
@@ -182,7 +179,7 @@ cmd.exe /c dism.exe /Unmount-Wim /MountDir:$pe_mount /commit
 Copy-Item $pe_build\winpe.wim $pe_pxe\Boot\winpe.wim
 
 #Copy the WindowsPE image and boot components to the samba server:
-New-PSDrive $samba_mountpoint[0] -PSProvider FileSystem -Root "\\$samba_server_ip\$samba_share"
+New-PSDrive $samba_mountpoint[0] -PSProvider FileSystem -Root $UNC
 if (!(Test-Path -path $samba_mountpoint\$win_folder\$win_boot)) {New-Item $samba_mountpoint\$win_folder\$win_boot -Type Directory}
 if (!(Test-Path -path $samba_mountpoint\$win_folder\$win_source)) {New-Item $samba_mountpoint\$win_folder\$win_source -Type Directory}
 if (!(Test-Path -path $samba_mountpoint\$win_folder\$win_unattend)) {New-Item $samba_mountpoint\$win_folder\$win_unattend -Type Directory}
