@@ -151,7 +151,7 @@ Copy-Item "$pe_deployment_tools\amd64\Oscdimg\oscdimg.exe" $pe_build
 cmd.exe /c "$pe_deployment_tools\DandISetEnv.bat"
 if ($LastExitCode) { throw "DandISetEnv failed" }
 
-dism.exe /Mount-Wim /WimFile:$pe_build\winpe.wim /index:$imageIndex /MountDir:$pe_mount
+dism.exe /Mount-Wim /WimFile:$pe_build\winpe.wim /index:1 /MountDir:$pe_mount
 if ($LastExitCode) { throw "dism failed" }
 
 try
