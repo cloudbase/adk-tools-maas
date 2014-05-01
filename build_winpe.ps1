@@ -80,30 +80,31 @@ $adk_url          = "http://download.microsoft.com/download/9/9/F/99F5E440-5EB5-
 $adk_file         = "adksetup.exe"
 $adk_features     = "OptionId.DeploymentTools OptionId.WindowsPreinstallationEnvironment"
 $adk_install_log  = "$pe_logs\adksetup.log"
+$adk_base_dir     = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit"
 
 # Windows PE Specific Paths
-$pe_root             = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment"
-$pe_amd64_src        = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64"
-$pe_x32_src          = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\x86"
-$pe_package_src      = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs"
-$pe_deployment_tools = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Deployment Tools"
+$pe_root             = "$adk_base_dir\Windows Preinstallation Environment"
+$pe_amd64_src        = "$adk_base_dir\Windows Preinstallation Environment\amd64"
+$pe_x32_src          = "$adk_base_dir\Windows Preinstallation Environment\x86"
+$pe_package_src      = "$adk_base_dir\Windows Preinstallation Environment\amd64\WinPE_OCs"
+$pe_deployment_tools = "$adk_base_dir\Deployment Tools"
 $dism_path           = "$pe_deployment_tools\amd64\DISM"
 $bcd_path            = "$pe_deployment_tools\amd64\BCDBoot"
 $wism_path           = "$pe_deployment_tools\WSIM"
 $startnet_cmd        = "$pe_mount\Windows\System32\startnet.cmd"
 
 # Windows PE Packages
-$winpe_wmi              = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-WMI.cab"
-$winpe_wmi_enus         = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-WMI_en-us.cab"
-$winpe_hta              = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-WMI.cab"
-$winpe_hta_enus         = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-WMI_en-us.cab"
-$winpe_scripting        = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-Scripting.cab"
-$winpe_netfx4           = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-NetFx4.cab"
-$winpe_netfx4_enus      = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-NetFx4_en-us.cab"
-$winpe_powershell3      = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-PowerShell3.cab"
-$winpe_powershell3_enus = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-PowerShell3_en-us.cab"
-$winpe_storagewmi       = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-StorageWMI.cab"
-$winpe_storagewmi_enus  = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-StorageWMI_en-us.cab"
+$winpe_wmi              = "$pe_package_src\WinPE-WMI.cab"
+$winpe_wmi_enus         = "$pe_package_src\en-us\WinPE-WMI_en-us.cab"
+$winpe_hta              = "$pe_package_src\WinPE-WMI.cab"
+$winpe_hta_enus         = "$pe_package_src\en-us\WinPE-WMI_en-us.cab"
+$winpe_scripting        = "$pe_package_src\WinPE-Scripting.cab"
+$winpe_netfx4           = "$pe_package_src\WinPE-NetFx4.cab"
+$winpe_netfx4_enus      = "$pe_package_src\en-us\WinPE-NetFx4_en-us.cab"
+$winpe_powershell3      = "$pe_package_src\WinPE-PowerShell3.cab"
+$winpe_powershell3_enus = "$pe_package_src\en-us\WinPE-PowerShell3_en-us.cab"
+$winpe_storagewmi       = "$pe_package_src\WinPE-StorageWMI.cab"
+$winpe_storagewmi_enus  = "$pe_package_src\en-us\WinPE-StorageWMI_en-us.cab"
 
 
 $win_boot     = "boot"
@@ -147,7 +148,7 @@ Copy-Item "$pe_root\amd64\en-us\winpe.wim" $pe_build
 Copy-Item "$pe_deployment_tools\amd64\Oscdimg\etfsboot.com" $pe_build
 Copy-Item "$pe_deployment_tools\amd64\Oscdimg\oscdimg.exe" $pe_build
 
-cmd.exe /c "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Deployment Tools\DandISetEnv.bat"
+cmd.exe /c "$pe_deployment_tools\DandISetEnv.bat"
 if ($LastExitCode) { throw "DandISetEnv failed" }
 
 dism.exe /Mount-Wim /WimFile:$pe_build\winpe.wim /index:$imageIndex /MountDir:$pe_mount
@@ -158,7 +159,7 @@ try
     Copy-Item "$pe_mount\Windows\Boot\PXE\pxeboot.com" "$pe_pxe\Boot\pxeboot.com"
     Copy-Item "$pe_mount\Windows\Boot\PXE\pxeboot.n12" "$pe_pxe\Boot\pxeboot.0"
     Copy-Item "$pe_mount\Windows\Boot\PXE\bootmgr.exe" "$pe_pxe\Boot\bootmgr.exe"
-    Copy-Item "$pe_mount\Windows\Boot\PXE\abortpxe.com"  "$pe_pxe\Boot\abortpxe.com"
+    Copy-Item "$pe_mount\Windows\Boot\PXE\abortpxe.com" "$pe_pxe\Boot\abortpxe.com"
     Copy-Item "$pe_root\amd64\Media\Boot\boot.sdi" "$pe_pxe\Boot\boot.sdi"
 
     cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_wmi`""
