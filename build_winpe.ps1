@@ -13,9 +13,9 @@
 # under the License.
 
 Param(
-  [string]$ImageName = "Windows Server 2012 R2 SERVERSTANDARD", 
+  [string]$ImageName = "Windows Server 2012 R2 SERVERSTANDARD",
   [string]$InstallMediaPath = "D:",
-  [string]$TargetPath = "\\192.168.100.1\WinPE",  
+  [string]$TargetPath = "\\192.168.100.1\WinPE",
   [string]$AditionalDrivers = $null
 )
 
@@ -57,60 +57,60 @@ $maasImagesMap.ws2008r2web = "Windows Server 2008 R2 SERVERWEB"
 $maasImageName = $maasImagesMap.Keys | where {$maasImagesMap[$_] -eq $image.ImageName}
 if (!$maasImageName)
 {
-	throw "Image ""$ImageName"" is not currently supported by MaaS"
+    throw "Image ""$ImageName"" is not currently supported by MaaS"
 }
 
 $imageIndex = $image.ImageIndex
 
 # Our WinPE Folder Structure
-$pe_dir 			= "c:\winpe"
-$pe_programs	= "c:\winpe\build\mount\Program Files (x86)"
-$pe_src         	= "$pe_dir\src"
-$pe_drivers  	= "$pe_dir\src\drivers"
-$pe_bin        	= "$pe_dir\bin"
-$pe_logs  		= "$pe_dir\logs"
-$pe_build   		= "$pe_dir\build"
-$pe_mount  	= "$pe_dir\build\mount"
-$pe_iso      		= "$pe_dir\ISO"
-$pe_pxe			= "$pe_dir\PXE"
-$pe_tmp			= "$pe_dir\tmp"
+$pe_dir      = "c:\winpe"
+$pe_programs = "c:\winpe\build\mount\Program Files (x86)"
+$pe_src      = "$pe_dir\src"
+$pe_drivers  = "$pe_dir\src\drivers"
+$pe_bin      = "$pe_dir\bin"
+$pe_logs     = "$pe_dir\logs"
+$pe_build    = "$pe_dir\build"
+$pe_mount    = "$pe_dir\build\mount"
+$pe_iso      = "$pe_dir\ISO"
+$pe_pxe      = "$pe_dir\PXE"
+$pe_tmp      = "$pe_dir\tmp"
 
 # ADK Url and Install Options
-$adk_url             	= "http://download.microsoft.com/download/9/9/F/99F5E440-5EB5-4952-9935-B99662C3DF70/adk/adksetup.exe"
-$adk_file				= "adksetup.exe"
-$adk_features 		= "OptionId.DeploymentTools OptionId.WindowsPreinstallationEnvironment"
-$adk_install_log	= "$pe_logs\adksetup.log"
+$adk_url          = "http://download.microsoft.com/download/9/9/F/99F5E440-5EB5-4952-9935-B99662C3DF70/adk/adksetup.exe"
+$adk_file         = "adksetup.exe"
+$adk_features     = "OptionId.DeploymentTools OptionId.WindowsPreinstallationEnvironment"
+$adk_install_log  = "$pe_logs\adksetup.log"
 
 # Windows PE Specific Paths
-$pe_root 						= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment"
-$pe_amd64_src 			= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64"
-$pe_x32_src 				= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\x86"
-$pe_package_src 		= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs"
+$pe_root             = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment"
+$pe_amd64_src        = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64"
+$pe_x32_src          = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\x86"
+$pe_package_src      = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs"
 $pe_deployment_tools = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Deployment Tools"
-$dism_path    				= "$pe_deployment_tools\amd64\DISM"
-$bcd_path     				= "$pe_deployment_tools\amd64\BCDBoot"
-$wism_path   				= "$pe_deployment_tools\WSIM"
-$startnet_cmd  			= "$pe_mount\Windows\System32\startnet.cmd"
+$dism_path           = "$pe_deployment_tools\amd64\DISM"
+$bcd_path            = "$pe_deployment_tools\amd64\BCDBoot"
+$wism_path           = "$pe_deployment_tools\WSIM"
+$startnet_cmd        = "$pe_mount\Windows\System32\startnet.cmd"
 
 # Windows PE Packages
-$winpe_wmi 						= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-WMI.cab"
-$winpe_wmi_enus 				= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-WMI_en-us.cab"
-$winpe_hta    						= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-WMI.cab"
-$winpe_hta_enus  				= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-WMI_en-us.cab"
-$winpe_scripting  				= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-Scripting.cab"
-$winpe_netfx4  					= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-NetFx4.cab"
-$winpe_netfx4_enus  			= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-NetFx4_en-us.cab"
-$winpe_powershell3 			= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-PowerShell3.cab"
-$winpe_powershell3_enus	= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-PowerShell3_en-us.cab"
-$winpe_storagewmi 			= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-StorageWMI.cab"
-$winpe_storagewmi_enus 	= "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-StorageWMI_en-us.cab"
+$winpe_wmi              = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-WMI.cab"
+$winpe_wmi_enus         = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-WMI_en-us.cab"
+$winpe_hta              = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-WMI.cab"
+$winpe_hta_enus         = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-WMI_en-us.cab"
+$winpe_scripting        = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-Scripting.cab"
+$winpe_netfx4           = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-NetFx4.cab"
+$winpe_netfx4_enus      = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-NetFx4_en-us.cab"
+$winpe_powershell3      = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-PowerShell3.cab"
+$winpe_powershell3_enus = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-PowerShell3_en-us.cab"
+$winpe_storagewmi       = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\WinPE-StorageWMI.cab"
+$winpe_storagewmi_enus  = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs\en-us\WinPE-StorageWMI_en-us.cab"
 
 
-$win_boot  					= "boot"
-$win_source  				= "source"
-$win_unattend  			= "unattend"
-$win_extra  				= "extra"
-$win_folder 				= $maasImageName
+$win_boot     = "boot"
+$win_source   = "source"
+$win_unattend = "unattend"
+$win_extra    = "extra"
+$win_folder   = $maasImageName
 
 # Make sure the image is not mounted from a previous failed run
 cmd.exe /c dism.exe /Unmount-Wim /MountDir:$pe_mount /discard
@@ -133,9 +133,9 @@ if (!(Test-Path -path $pe_pxe)) {New-Item $pe_pxe -Type Directory}
 $adk_reg_key = "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{fc46d1b2-9557-4c1f-baac-04af4d2db7e4}"
 if(-not (Test-Path -Path $adk_reg_key))
 {
-	Invoke-WebRequest -UseBasicParsing -uri $adk_url -OutFile $pe_src\$adk_file
-	$p = Start-Process -FilePath "$pe_src\$adk_file" -ArgumentList "/quiet /norestart /features `"$adk_features`" /log `"$adk_install_log`"" -Wait -PassThru
-	if($p.ExitCode)  { throw "The ADK installation failed" }
+    Invoke-WebRequest -UseBasicParsing -uri $adk_url -OutFile $pe_src\$adk_file
+    $p = Start-Process -FilePath "$pe_src\$adk_file" -ArgumentList "/quiet /norestart /features `"$adk_features`" /log `"$adk_install_log`"" -Wait -PassThru
+    if($p.ExitCode)  { throw "The ADK installation failed" }
 }
 
 $env:Path += $dism_path;$bcd_path;$wsim_path;$::path
@@ -155,75 +155,75 @@ if ($LastExitCode) { throw "dism failed" }
 
 try
 {
-	Copy-Item "$pe_mount\Windows\Boot\PXE\pxeboot.com" "$pe_pxe\Boot\pxeboot.com"
-	Copy-Item "$pe_mount\Windows\Boot\PXE\pxeboot.n12" "$pe_pxe\Boot\pxeboot.0"
-	Copy-Item "$pe_mount\Windows\Boot\PXE\bootmgr.exe" "$pe_pxe\Boot\bootmgr.exe"
-	Copy-Item "$pe_mount\Windows\Boot\PXE\abortpxe.com"  "$pe_pxe\Boot\abortpxe.com"
-	Copy-Item "$pe_root\amd64\Media\Boot\boot.sdi" "$pe_pxe\Boot\boot.sdi"
+    Copy-Item "$pe_mount\Windows\Boot\PXE\pxeboot.com" "$pe_pxe\Boot\pxeboot.com"
+    Copy-Item "$pe_mount\Windows\Boot\PXE\pxeboot.n12" "$pe_pxe\Boot\pxeboot.0"
+    Copy-Item "$pe_mount\Windows\Boot\PXE\bootmgr.exe" "$pe_pxe\Boot\bootmgr.exe"
+    Copy-Item "$pe_mount\Windows\Boot\PXE\abortpxe.com"  "$pe_pxe\Boot\abortpxe.com"
+    Copy-Item "$pe_root\amd64\Media\Boot\boot.sdi" "$pe_pxe\Boot\boot.sdi"
 
-	cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_wmi`""
-	if ($LastExitCode) { throw "dism failed" }
+    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_wmi`""
+    if ($LastExitCode) { throw "dism failed" }
 
-	cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_wmi_enus`""
-	if ($LastExitCode) { throw "dism failed" }
+    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_wmi_enus`""
+    if ($LastExitCode) { throw "dism failed" }
 
-	cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_hta`""
-	if ($LastExitCode) { throw "dism failed" }
+    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_hta`""
+    if ($LastExitCode) { throw "dism failed" }
 
-	cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_hta_enus`""
-	if ($LastExitCode) { throw "dism failed" }
+    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_hta_enus`""
+    if ($LastExitCode) { throw "dism failed" }
 
-	cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_scripting`""
-	if ($LastExitCode) { throw "dism failed" }
+    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_scripting`""
+    if ($LastExitCode) { throw "dism failed" }
 
-	cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_netfx4`""
-	if ($LastExitCode) { throw "dism failed" }
+    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_netfx4`""
+    if ($LastExitCode) { throw "dism failed" }
 
-	cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_netfx4_enus`""
-	if ($LastExitCode) { throw "dism failed" }
+    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_netfx4_enus`""
+    if ($LastExitCode) { throw "dism failed" }
 
-	cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_powershell3`""
-	if ($LastExitCode) { throw "dism failed" }
+    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_powershell3`""
+    if ($LastExitCode) { throw "dism failed" }
 
-	cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_powershell3_enus`""
-	if ($LastExitCode) { throw "dism failed" }
+    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_powershell3_enus`""
+    if ($LastExitCode) { throw "dism failed" }
 
-	cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_storagewmi`""
-	if ($LastExitCode) { throw "dism failed" }
+    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_storagewmi`""
+    if ($LastExitCode) { throw "dism failed" }
 
-	cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_storagewmi_enus`""
-	if ($LastExitCode) { throw "dism failed" }
+    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_storagewmi_enus`""
+    if ($LastExitCode) { throw "dism failed" }
 
-	if ($AdditionalDriversPath)
-	{
-		# Copy the drivers to a local path
-		Copy-Item (join-Path $AdditionalDriversPath *) "$pe_drivers\" -Recurse
-		cmd.exe /c dism.exe /image:$pe_mount /Add-Driver /driver:$pe_drivers /recurse /forceunsigned
-		if ($LastExitCode) { throw "dism failed in adding external drivers" }
-	}
+    if ($AdditionalDriversPath)
+    {
+        # Copy the drivers to a local path
+        Copy-Item (join-Path $AdditionalDriversPath *) "$pe_drivers\" -Recurse
+        cmd.exe /c dism.exe /image:$pe_mount /Add-Driver /driver:$pe_drivers /recurse /forceunsigned
+        if ($LastExitCode) { throw "dism failed in adding external drivers" }
+    }
 
-	# bcdcreate.cmd needs to be placed in $pe_bin\bcdcreate.cmd
-	$script_dir = Split-Path -Parent $MyInvocation.MyCommand.Path
-	Copy-Item $script_dir\bcdcreate.cmd $pe_bin\bcdcreate.cmd
-	pushd
-	cd $pe_pxe\Boot
-	cmd.exe /c $pe_bin\bcdcreate.cmd
-	if ($LastExitCode) { throw "bcdcreate failed" }
-	popd
+    # bcdcreate.cmd needs to be placed in $pe_bin\bcdcreate.cmd
+    $script_dir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    Copy-Item $script_dir\bcdcreate.cmd $pe_bin\bcdcreate.cmd
+    pushd
+    cd $pe_pxe\Boot
+    cmd.exe /c $pe_bin\bcdcreate.cmd
+    if ($LastExitCode) { throw "bcdcreate failed" }
+    popd
 
-	Add-Content $startnet_cmd "`n"
-	Add-Content $startnet_cmd "`npowershell -ExecutionPolicy RemoteSigned x:\run_install.ps1`n"
-	Add-Content $startnet_cmd "`n exit"
-	Copy-Item "$script_dir\run_install.ps1" "$pe_mount\run_install.ps1"
+    Add-Content $startnet_cmd "`n"
+    Add-Content $startnet_cmd "`npowershell -ExecutionPolicy RemoteSigned x:\run_install.ps1`n"
+    Add-Content $startnet_cmd "`n exit"
+    Copy-Item "$script_dir\run_install.ps1" "$pe_mount\run_install.ps1"
 
-	cmd.exe /c dism.exe /Unmount-Wim /MountDir:$pe_mount /commit
-	if ($LastExitCode) { throw "dism failed" }
+    cmd.exe /c dism.exe /Unmount-Wim /MountDir:$pe_mount /commit
+    if ($LastExitCode) { throw "dism failed" }
 }
 catch
 {
-	# Something went wrong. Don't leave the image mounted
-	cmd.exe /c dism.exe /Unmount-Wim /MountDir:$pe_mount /discard
-	throw
+    # Something went wrong. Don't leave the image mounted
+    cmd.exe /c dism.exe /Unmount-Wim /MountDir:$pe_mount /discard
+    throw
 }
 
 Copy-Item $pe_build\winpe.wim $pe_pxe\Boot\winpe.wim
