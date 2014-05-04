@@ -16,7 +16,7 @@ Param(
   [string]$ImageName = "Windows Server 2012 R2 SERVERSTANDARD",
   [string]$InstallMediaPath = "D:",
   [string]$TargetPath = "\\192.168.100.1\WinPE",
-  [string]$AditionalDrivers = $null
+  [string]$AdditionalDriversPath = $null
 )
 
 $ErrorActionPreference = "Stop"
