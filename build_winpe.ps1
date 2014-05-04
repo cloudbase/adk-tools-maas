@@ -16,6 +16,7 @@ Param(
   [string]$ImageName = "Windows Server 2012 R2 SERVERSTANDARD",
   [string]$InstallMediaPath = "D:",
   [string]$TargetPath = "\\192.168.100.1\WinPE",
+  [switch]$UseLargeTFTPBlockSize = $false,
   [string]$AdditionalDriversPath = $null
 )
 
@@ -207,10 +208,26 @@ try
     $script_dir = Split-Path -Parent $MyInvocation.MyCommand.Path
     Copy-Item $script_dir\bcdcreate.cmd $pe_bin\bcdcreate.cmd
     pushd
-    cd $pe_pxe\Boot
-    cmd.exe /c $pe_bin\bcdcreate.cmd
-    if ($LastExitCode) { throw "bcdcreate failed" }
-    popd
+    
+    if($UseLargeTFTPBlockSize)
+    {
+        $TFTPBlockSize = 8192
+    }
+    else
+    {
+        $TFTPBlockSize = 1400
+    }
+
+    try
+    {
+        cd $pe_pxe\Boot
+        cmd.exe /c $pe_bin\bcdcreate.cmd $TFTPBlockSize
+        if ($LastExitCode) { throw "bcdcreate failed" }
+    }
+    finally
+    {
+        popd
+    }
 
     Add-Content $startnet_cmd "`n"
     Add-Content $startnet_cmd "`npowershell -ExecutionPolicy RemoteSigned x:\run_install.ps1`n"
