@@ -13,68 +13,24 @@
 # under the License.
 
 Param(
-  [string]$ImageName = "Windows Server 2012 R2 SERVERSTANDARD",
-  [string]$InstallMediaPath = "D:",
-  [string]$TargetPath = "\\192.168.100.1\WinPE",
-  [switch]$UseLargeTFTPBlockSize = $false,
-  [string]$AdditionalDriversPath = $null
+  [switch]$UseLargeTFTPBlockSize = $true,
+  [string]$AdditionalDriversPath = $null,
+  [string]$WinPEFolder = "c:\winpe"
 )
 
 $ErrorActionPreference = "Stop"
 
-$scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
-Import-Module "$scriptPath\WimFileInfo.ps1"
-
-$installWimPath = Join-Path $InstallMediaPath "sources\install.wim"
-$images = Get-WimFileImagesInfo $installWimPath
-$image = $images | where { $_.ImageName -eq $ImageName}
-
-if (!$image)
-{
-    throw "Image ""$ImageName"" not found on install media path ""$InstallMediaPath"""
-}
-
-$maasImagesMap = @{}
-$maasImagesMap.ws2012r2stdcore = "Windows Server 2012 R2 SERVERSTANDARDCORE"
-$maasImagesMap.ws2012r2std = "Windows Server 2012 R2 SERVERSTANDARD"
-$maasImagesMap.ws2012r2dccore = "Windows Server 2012 R2 SERVERDATACENTERCORE"
-$maasImagesMap.ws2012r2dc = "Windows Server 2012 R2 SERVERDATACENTER"
-$maasImagesMap.ws2012r2hv = "Hyper-V Server 2012 R2 SERVERHYPERCORE"
-$maasImagesMap.ws2012stdcore = "Windows Server 2012 SERVERSTANDARDCORE"
-$maasImagesMap.ws2012std = "Windows Server 2012 SERVERSTANDARD"
-$maasImagesMap.ws2012dccore = "Windows Server 2012 SERVERDATACENTERCORE"
-$maasImagesMap.ws2012dc = "Windows Server 2012 SERVERDATACENTER"
-$maasImagesMap.ws2012hv = "Hyper-V Server 2012 SERVERHYPERCORE"
-$maasImagesMap.ws2008r2stdcore = "Windows Server 2008 R2 SERVERSTANDARDCORE"
-$maasImagesMap.ws2008r2std = "Windows Server 2008 R2 SERVERSTANDARD"
-$maasImagesMap.ws2008r2dccore = "Windows Server 2008 R2 SERVERDATACENTERCORE"
-$maasImagesMap.ws2008r2dc = "Windows Server 2008 R2 SERVERDATACENTER"
-$maasImagesMap.ws2008r2hv = "Hyper-V Server 2008 R2 SERVERHYPERCORE"
-$maasImagesMap.ws2008r2entcore = "Windows Server 2008 R2 SERVERENTERPRISECORE"
-$maasImagesMap.ws2008r2ent = "Windows Server 2008 R2 SERVERENTERPRISE"
-$maasImagesMap.ws2008r2webcore = "Windows Server 2008 R2 SERVERWEBCORE"
-$maasImagesMap.ws2008r2web = "Windows Server 2008 R2 SERVERWEB"
-
-$maasImageName = $maasImagesMap.Keys | where {$maasImagesMap[$_] -eq $image.ImageName}
-if (!$maasImageName)
-{
-    throw "Image ""$ImageName"" is not currently supported by MaaS"
-}
-
-$imageIndex = $image.ImageIndex
-
 # Our WinPE Folder Structure
-$pe_dir      = "c:\winpe"
-$pe_programs = "c:\winpe\build\mount\Program Files (x86)"
-$pe_src      = "$pe_dir\src"
-$pe_drivers  = "$pe_dir\src\drivers"
-$pe_bin      = "$pe_dir\bin"
-$pe_logs     = "$pe_dir\logs"
-$pe_build    = "$pe_dir\build"
-$pe_mount    = "$pe_dir\build\mount"
-$pe_iso      = "$pe_dir\ISO"
-$pe_pxe      = "$pe_dir\PXE"
-$pe_tmp      = "$pe_dir\tmp"
+$pe_programs = "$WinPEFolder\build\mount\Program Files (x86)"
+$pe_src      = "$WinPEFolder\src"
+$pe_drivers  = "$WinPEFolder\src\drivers"
+$pe_bin      = "$WinPEFolder\bin"
+$pe_logs     = "$WinPEFolder\logs"
+$pe_build    = "$WinPEFolder\build"
+$pe_mount    = "$WinPEFolder\build\mount"
+$pe_iso      = "$WinPEFolder\ISO"
+$pe_pxe      = "$WinPEFolder\PXE"
+$pe_tmp      = "$WinPEFolder\tmp"
 
 # ADK Url and Install Options
 $adk_url          = "http://download.microsoft.com/download/9/9/F/99F5E440-5EB5-4952-9935-B99662C3DF70/adk/adksetup.exe"
@@ -82,6 +38,7 @@ $adk_file         = "adksetup.exe"
 $adk_features     = "OptionId.DeploymentTools OptionId.WindowsPreinstallationEnvironment"
 $adk_install_log  = "$pe_logs\adksetup.log"
 $adk_base_dir     = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit"
+$adk_reg_key = "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{fc46d1b2-9557-4c1f-baac-04af4d2db7e4}"
 
 # Windows PE Specific Paths
 $pe_root             = "$adk_base_dir\Windows Preinstallation Environment"
@@ -112,15 +69,14 @@ $win_boot     = "boot"
 $win_source   = "source"
 $win_unattend = "unattend"
 $win_extra    = "extra"
-$win_folder   = $maasImageName
 
-# Make sure the image is not mounted from a previous failed run
+# Make sure the WinPE image is not mounted from a previous failed run
 cmd.exe /c dism.exe /Unmount-Wim /MountDir:$pe_mount /discard
 
 #Cleanup before starting any processing
-if (Test-Path -path $pe_dir) {rmdir $pe_dir -Recurse -Force}
+if (Test-Path -path $WinPEFolder) {rmdir $WinPEFolder -Recurse -Force}
 
-New-Item $pe_dir -Type Directory
+New-Item $WinPEFolder -Type Directory
 
 if (!(Test-Path -path $pe_src)) {New-Item $pe_src -Type Directory}
 if (!(Test-Path -path $pe_drivers)) {New-Item $pe_drivers -Type Directory}
@@ -132,7 +88,6 @@ if (!(Test-Path -path $pe_tmp)) {New-Item $pe_tmp -Type Directory}
 if (!(Test-Path -path $pe_iso)) {New-Item $pe_iso -Type Directory}
 if (!(Test-Path -path $pe_pxe)) {New-Item $pe_pxe -Type Directory}
 
-$adk_reg_key = "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{fc46d1b2-9557-4c1f-baac-04af4d2db7e4}"
 if(-not (Test-Path -Path $adk_reg_key))
 {
     Invoke-WebRequest -UseBasicParsing -uri $adk_url -OutFile $pe_src\$adk_file
@@ -152,7 +107,7 @@ Copy-Item "$pe_deployment_tools\amd64\Oscdimg\oscdimg.exe" $pe_build
 cmd.exe /c "$pe_deployment_tools\DandISetEnv.bat"
 if ($LastExitCode) { throw "DandISetEnv failed" }
 
-dism.exe /Mount-Wim /WimFile:$pe_build\winpe.wim /index:1 /MountDir:$pe_mount
+&dism.exe /Mount-Wim /WimFile:$pe_build\winpe.wim /index:1 /MountDir:$pe_mount
 if ($LastExitCode) { throw "dism failed" }
 
 try
@@ -200,7 +155,7 @@ try
     {
         # Copy the drivers to a local path
         Copy-Item (join-Path $AdditionalDriversPath *) "$pe_drivers\" -Recurse
-        cmd.exe /c dism.exe /image:$pe_mount /Add-Driver /driver:$pe_drivers /recurse /forceunsigned
+        dism.exe /image:$pe_mount /Add-Driver /driver:$pe_drivers /recurse /ForceUnsigned
         if ($LastExitCode) { throw "dism failed in adding external drivers" }
     }
 
@@ -245,18 +200,3 @@ catch
 }
 
 Copy-Item $pe_build\winpe.wim $pe_pxe\Boot\winpe.wim
-
-#Copy the WindowsPE image and boot components to the target path:
-
-$dest =  "$TargetPath\$win_folder"
-if (Test-Path -path $dest) { rmdir $dest -Recurse -Force }
-
-New-Item $dest\$win_boot -Type Directory
-New-Item $dest\$win_source -Type Directory
-New-Item $dest\$win_unattend -Type Directory
-Copy-Item $pe_pxe\Boot\* $dest\$win_boot
-dir $dest\$win_boot -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
-Copy-Item $InstallMediaPath\sources\* $dest\$win_source -Recurse
-dir $dest\$win_source -r | % { if ($_.Name -cne $_.Name.ToLower()) { ren $_.FullName $_.Name.ToLower() } }
-
-Write-Host "WinPE image generated and copied to $dest"
