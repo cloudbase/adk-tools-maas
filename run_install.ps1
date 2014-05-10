@@ -15,12 +15,11 @@ $sourcePath = $kernParams[1].toLower()
 $preseedUrl = $kernParams[2].replace('\', '/').toLower()
 
 
-
-Invoke-WebRequest -Uri $preseedUrl -OutFile x:\unattended.xml
+do{Start-Sleep 1; (new-object System.Net.WebClient).DownloadFile($preseedUrl,'x:\unattended.xml')} while ($? -eq $false)
 
 $metadataUrl = $preseedUrl.split('?')[0]
 
-New-SmbMapping -RemotePath $remoteSmbPath -LocalPath p:
+do{Start-Sleep 1; New-SmbMapping -RemotePath $remoteSmbPath -LocalPath p: } while ($? -eq $false)
 
 if ($? -eq $false){
   exit
