@@ -15,8 +15,58 @@
 Param(
   [switch]$UseLargeTFTPBlockSize = $true,
   [string]$AdditionalDriversPath = $null,
-  [string]$WinPEFolder = "c:\winpe"
+  [string]$WinPEFolder = "c:\winpe",
+  [string]$ADKVersion = "8.0",
+  [switch]$ForceADKInstall = $false
 )
+
+Function CleanupWinPEFolders
+{
+    #Cleanup before starting any processing
+    if (Test-Path -path $WinPEFolder) {rmdir $WinPEFolder -Recurse -Force}
+
+    New-Item $WinPEFolder -Type Directory
+    New-Item $pe_src -Type Directory
+    New-Item $pe_drivers -Type Directory
+    New-Item $pe_logs -Type Directory
+    New-Item $pe_bin -Type Directory
+    New-Item $pe_build -Type Directory
+    New-Item $pe_mount -Type Directory
+    New-Item $pe_tmp -Type Directory
+    New-Item $pe_iso -Type Directory
+    New-Item $pe_pxe -Type Directory
+    New-Item "$pe_pxe\Boot" -Type Directory
+}
+
+Function InstallADKTools
+{
+    if(-not (Test-Path -Path "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\$($adk_reg_key[$ADKVersion])"))
+    {
+
+        foreach($adk_version in $adk_reg_key.Keys)
+        {
+            if(Test-Path -Path "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\$($adk_reg_key[$adk_version])")
+            {
+                if($ForceADKInstall)
+                {
+                    $uninstall_adk = $(Get-ItemProperty "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\$($adk_reg_key[$adk_version])" -Name QuietUninstallString).QuietUninstallString
+                    Invoke-Expression "& $uninstall_adk"
+                }
+                else
+                {
+                    throw "Different Windows Assessment and Deployment Kit version already installed on this system."
+                }
+            }
+        }
+
+        Invoke-WebRequest -UseBasicParsing -uri $($adk_url[$ADKVersion]) -OutFile $pe_src\$adk_file
+        $p = Start-Process -FilePath "$pe_src\$adk_file" -ArgumentList "/quiet /norestart /features `"$adk_features`" /log `"$adk_install_log`"" -Wait -PassThru
+        if($p.ExitCode)  { throw "The ADK installation failed" }
+    }
+}
+
+
+
 
 $ErrorActionPreference = "Stop"
 
@@ -33,38 +83,61 @@ $pe_pxe      = "$WinPEFolder\PXE"
 $pe_tmp      = "$WinPEFolder\tmp"
 
 # ADK Url and Install Options
-$adk_url          = "http://download.microsoft.com/download/9/9/F/99F5E440-5EB5-4952-9935-B99662C3DF70/adk/adksetup.exe"
-$adk_file         = "adksetup.exe"
-$adk_features     = "OptionId.DeploymentTools OptionId.WindowsPreinstallationEnvironment"
-$adk_install_log  = "$pe_logs\adksetup.log"
-$adk_base_dir     = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit"
-$adk_reg_key = "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{fc46d1b2-9557-4c1f-baac-04af4d2db7e4}"
+$adk_url             = @{}
+$adk_url["8.0"]      = "http://download.microsoft.com/download/9/9/F/99F5E440-5EB5-4952-9935-B99662C3DF70/adk/adksetup.exe"
+$adk_url["8.1"]      = "http://download.microsoft.com/download/6/A/E/6AEA92B0-A412-4622-983E-5B305D2EBE56/adk/adksetup.exe"
+$adk_file            = "adksetup.exe"
+$adk_features        = "OptionId.DeploymentTools OptionId.WindowsPreinstallationEnvironment"
+$adk_install_log     = "$pe_logs\adksetup.log"
+$adk_base_dir        = @{}
+$adk_base_dir["8.0"] = "${ENV:ProgramFiles(x86)}\Windows Kits\8.0\Assessment and Deployment Kit"
+$adk_base_dir["8.1"] = "${ENV:ProgramFiles(x86)}\Windows Kits\8.1\Assessment and Deployment Kit"
+$adk_reg_key         = @{}
+$adk_reg_key["8.0"]  = "{fc46d1b2-9557-4c1f-baac-04af4d2db7e4}"
+$adk_reg_key["8.1"]  = "{9277b0c4-2ca8-431b-b4e2-98daf4005ec0}"
+
 
 # Windows PE Specific Paths
-$pe_root             = "$adk_base_dir\Windows Preinstallation Environment"
-$pe_amd64_src        = "$adk_base_dir\Windows Preinstallation Environment\amd64"
-$pe_x32_src          = "$adk_base_dir\Windows Preinstallation Environment\x86"
-$pe_package_src      = "$adk_base_dir\Windows Preinstallation Environment\amd64\WinPE_OCs"
-$pe_deployment_tools = "$adk_base_dir\Deployment Tools"
+$pe_root             = "$($adk_base_dir[$ADKVersion])\Windows Preinstallation Environment"
+$pe_amd64_src        = "$($adk_base_dir[$ADKVersion])\Windows Preinstallation Environment\amd64"
+$pe_x32_src          = "$($adk_base_dir[$ADKVersion])\Windows Preinstallation Environment\x86"
+$pe_package_src      = "$($adk_base_dir[$ADKVersion])\Windows Preinstallation Environment\amd64\WinPE_OCs"
+$pe_deployment_tools = "$($adk_base_dir[$ADKVersion])\Deployment Tools"
 $dism_path           = "$pe_deployment_tools\amd64\DISM"
 $bcd_path            = "$pe_deployment_tools\amd64\BCDBoot"
 $wism_path           = "$pe_deployment_tools\WSIM"
 $startnet_cmd        = "$pe_mount\Windows\System32\startnet.cmd"
 
 # Windows PE Packages
-$winpe_wmi              = "$pe_package_src\WinPE-WMI.cab"
-$winpe_wmi_enus         = "$pe_package_src\en-us\WinPE-WMI_en-us.cab"
-$winpe_hta              = "$pe_package_src\WinPE-WMI.cab"
-$winpe_hta_enus         = "$pe_package_src\en-us\WinPE-WMI_en-us.cab"
-$winpe_scripting        = "$pe_package_src\WinPE-Scripting.cab"
-$winpe_netfx4           = "$pe_package_src\WinPE-NetFx4.cab"
-$winpe_netfx4_enus      = "$pe_package_src\en-us\WinPE-NetFx4_en-us.cab"
-$winpe_powershell3      = "$pe_package_src\WinPE-PowerShell3.cab"
-$winpe_powershell3_enus = "$pe_package_src\en-us\WinPE-PowerShell3_en-us.cab"
-$winpe_storagewmi       = "$pe_package_src\WinPE-StorageWMI.cab"
-$winpe_storagewmi_enus  = "$pe_package_src\en-us\WinPE-StorageWMI_en-us.cab"
+$winpe_package_list=@{}
+$winpe_package_list["8.0"]=@("WinPE-WMI.cab",
+"en-us\WinPE-WMI_en-us.cab",
+"WinPE-WMI.cab",
+"en-us\WinPE-WMI_en-us.cab",
+"WinPE-Scripting.cab",
+"WinPE-NetFx4.cab",
+"en-us\WinPE-NetFx4_en-us.cab",
+"WinPE-PowerShell3.cab",
+"en-us\WinPE-PowerShell3_en-us.cab",
+"WinPE-StorageWMI.cab",
+"en-us\WinPE-StorageWMI_en-us.cab")
+$winpe_package_list["8.1"]=@("WinPE-WMI.cab",
+"en-us\WinPE-WMI_en-us.cab",
+"WinPE-WMI.cab",
+"en-us\WinPE-WMI_en-us.cab",
+"WinPE-WMI.cab",
+"en-us\WinPE-WMI_en-us.cab",
+"WinPE-Scripting.cab",
+"WinPE-NetFx.cab",
+"en-us\WinPE-NetFx_en-us.cab",
+"WinPE-PowerShell.cab",
+"en-us\WinPE-PowerShell_en-us.cab",
+"WinPE-StorageWMI.cab",
+"en-us\WinPE-StorageWMI_en-us.cab",
+"WinPE-EnhancedStorage.cab",
+"en-us\WinPE-EnhancedStorage_en-us.cab")
 
-
+# Windows PE boot folder structure
 $win_boot     = "boot"
 $win_source   = "source"
 $win_unattend = "unattend"
@@ -73,31 +146,11 @@ $win_extra    = "extra"
 # Make sure the WinPE image is not mounted from a previous failed run
 cmd.exe /c dism.exe /Unmount-Wim /MountDir:$pe_mount /discard
 
-#Cleanup before starting any processing
-if (Test-Path -path $WinPEFolder) {rmdir $WinPEFolder -Recurse -Force}
+CleanupWinPEFolders
 
-New-Item $WinPEFolder -Type Directory
-
-if (!(Test-Path -path $pe_src)) {New-Item $pe_src -Type Directory}
-if (!(Test-Path -path $pe_drivers)) {New-Item $pe_drivers -Type Directory}
-if (!(Test-Path -path $pe_logs)) {New-Item $pe_logs -Type Directory}
-if (!(Test-Path -path $pe_bin)) {New-Item $pe_bin -Type Directory}
-if (!(Test-Path -path $pe_build)) {New-Item $pe_build -Type Directory}
-if (!(Test-Path -path $pe_mount)) {New-Item $pe_mount -Type Directory}
-if (!(Test-Path -path $pe_tmp)) {New-Item $pe_tmp -Type Directory}
-if (!(Test-Path -path $pe_iso)) {New-Item $pe_iso -Type Directory}
-if (!(Test-Path -path $pe_pxe)) {New-Item $pe_pxe -Type Directory}
-
-if(-not (Test-Path -Path $adk_reg_key))
-{
-    Invoke-WebRequest -UseBasicParsing -uri $adk_url -OutFile $pe_src\$adk_file
-    $p = Start-Process -FilePath "$pe_src\$adk_file" -ArgumentList "/quiet /norestart /features `"$adk_features`" /log `"$adk_install_log`"" -Wait -PassThru
-    if($p.ExitCode)  { throw "The ADK installation failed" }
-}
+InstallADKTools
 
 $env:Path += $dism_path;$bcd_path;$wsim_path;$::path
-
-if (!(Test-Path -path "$pe_pxe\Boot")) {New-Item "$pe_pxe\Boot" -Type Directory}
 
 Copy-Item "$pe_root\amd64\Media" "$pe_build\" -Recurse
 Copy-Item "$pe_root\amd64\en-us\winpe.wim" $pe_build
@@ -118,39 +171,14 @@ try
     Copy-Item "$pe_mount\Windows\Boot\PXE\abortpxe.com" "$pe_pxe\Boot\abortpxe.com"
     Copy-Item "$pe_root\amd64\Media\Boot\boot.sdi" "$pe_pxe\Boot\boot.sdi"
 
-    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_wmi`""
-    if ($LastExitCode) { throw "dism failed" }
+    # Add required packages to the WinPE image
+    foreach ($pe_package in $($winpe_package_list[$ADKVersion]))
+    {
+        cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$pe_package_src\$pe_package`""
+        if ($LastExitCode) { throw "dism failed installing " }
+    }
 
-    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_wmi_enus`""
-    if ($LastExitCode) { throw "dism failed" }
-
-    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_hta`""
-    if ($LastExitCode) { throw "dism failed" }
-
-    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_hta_enus`""
-    if ($LastExitCode) { throw "dism failed" }
-
-    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_scripting`""
-    if ($LastExitCode) { throw "dism failed" }
-
-    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_netfx4`""
-    if ($LastExitCode) { throw "dism failed" }
-
-    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_netfx4_enus`""
-    if ($LastExitCode) { throw "dism failed" }
-
-    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_powershell3`""
-    if ($LastExitCode) { throw "dism failed" }
-
-    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_powershell3_enus`""
-    if ($LastExitCode) { throw "dism failed" }
-
-    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_storagewmi`""
-    if ($LastExitCode) { throw "dism failed" }
-
-    cmd.exe /c "dism.exe /image:$pe_mount /Add-Package /PackagePath:`"$winpe_storagewmi_enus`""
-    if ($LastExitCode) { throw "dism failed" }
-
+    # If needed, add aditional drivers to the WinPE image
     if ($AdditionalDriversPath)
     {
         # Copy the drivers to a local path
@@ -164,6 +192,7 @@ try
     Copy-Item $script_dir\bcdcreate.cmd $pe_bin\bcdcreate.cmd
     pushd
     
+    # If possible, use large TFTP blocks
     if($UseLargeTFTPBlockSize)
     {
         $TFTPBlockSize = 8192
@@ -184,11 +213,13 @@ try
         popd
     }
 
+    # Create the script to launch our custom Windows Setup
     Add-Content $startnet_cmd "`n"
     Add-Content $startnet_cmd "`npowershell -ExecutionPolicy RemoteSigned x:\run_install.ps1`n"
     Add-Content $startnet_cmd "`n exit"
     Copy-Item "$script_dir\run_install.ps1" "$pe_mount\run_install.ps1"
 
+    # Unmount the image once we finish
     cmd.exe /c dism.exe /Unmount-Wim /MountDir:$pe_mount /commit
     if ($LastExitCode) { throw "dism failed" }
 }
@@ -199,4 +230,5 @@ catch
     throw
 }
 
+# Place the WinPE image in the right location
 Copy-Item $pe_build\winpe.wim $pe_pxe\Boot\winpe.wim
