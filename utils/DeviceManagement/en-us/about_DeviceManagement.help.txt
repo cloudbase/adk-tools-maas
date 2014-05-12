@@ -1,0 +1,58 @@
+﻿Description 
+PowerShell Cmdlets, written in Managed Code, that expose hardware topology information as well as PNP device discovery and control. 
+
+Requirements 
+Windows Server 2012 or Windows 8
+.NET Framework 4.5
+PowerShell 3.0
+
+Importing the Cmdlet module: 
+
+Import-Module .\PSCmdlet.psd1 -Verbose
+
+
+Listing Devices 
+
+All devices present on the system 
+
+Get-Device | Sort-Object -Property Name | ft Name, DriverVersion, DriverProvider, IsPresent, HasProblem -AutoSize 
+
+
+“Hidden” devices 
+
+Get-Device -ControlOptions DIGCF_ALLCLASSES | Where-Object -Property IsPresent -eq $false | Sort-Object -Property Name | ft Name, DriverVersion, DriverProvider, IsPresent, HasProblem -AutoSize
+
+
+Disabled devices 
+
+Get-Device | Sort-Object -Property Name | Where-Object -Property ConfigurationFlags -Like '*DISABLED*' | ft Name, InstanceId -AutoSize
+
+
+Enabling / Disabling Devices 
+
+$deviceName = Read-Host -Prompt 'Please enter the Name of the Device to Disable'; Get-Device | Where-Object -Property Name -Like $deviceName | Disable-Device
+
+
+$deviceName = Read-Host -Prompt 'Please enter the Name of the Device to Enable'; Get-Device | Where-Object -Property Name -Like $deviceName | Enable-Device
+
+
+Enumerating Drivers on the Driver Store 
+
+Get-Driver | Where-Object -Property ManufacturerName -eq "Microsoft" | ft * -AutoSize
+
+
+Topology Enumeration using the PowerShell Cmdlets 
+
+Logical Processor and NUMA Information 
+
+Get-Numa
+
+
+Firmware Tables 
+
+$hardwareTopology = Get-Numa; $hardwareTopology.FirmwareTables | ft -AutoSize
+
+
+Driver Installation 
+
+Install-Driver -InfFilePath <.inf file>

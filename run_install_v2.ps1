@@ -41,7 +41,7 @@ do{Start-Sleep 1; (new-object System.Net.WebClient).DownloadFile($preseedUrl,'x:
 
 $metadataUrl = $preseedUrl.split('?')[0]
 
-#do{Start-Sleep 1; New-SmbMapping -RemotePath $remoteSmbPath -LocalPath p: } while ($? -eq $false)
+do{Start-Sleep 1; New-SmbMapping -RemotePath $remoteSmbPath -LocalPath p: } while ($? -eq $false)
 
 #if ($? -eq $false){
 #  exit
@@ -50,11 +50,20 @@ $metadataUrl = $preseedUrl.split('?')[0]
 Set-Content "X:\clean_disk.txt" @"
 select disk 0
 clean
+create partition primary id=7
+active
+rescan
+select disk 0
+detail disk
+select partition 1
+detail partition
 "@
+
+bootsect /nt60 ALL /force /mbr
 
 diskpart /s X:\clean_disk.txt
 
-cmd.exe /c $remoteSmbPath\$sourcePath\setup.exe /noreboot /unattend:x:\unattended.xml
+cmd.exe /c P:\$sourcePath\setup.exe /noreboot /unattend:x:\unattended.xml
 if ($?)
 {
 	Invoke-WebRequest -Uri $metadataUrl -OutFile x:\dump.json -Method Post -Body "op=netboot_off"
