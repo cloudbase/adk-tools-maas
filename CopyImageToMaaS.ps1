@@ -57,8 +57,9 @@ $images = Get-ChildItem $img_build -Filter *.wim
 foreach($image in $images)
 {
     $CurrentImageName = $image.Name.SubString(0,$image.Name.length-4).Replace('-',' ')
-
-    if ($ImageName -ne "" -and $CurrentImageName -ne $ImageName)
+    $CurrentImageName = $CurrentImageName -replace '(Hyper-V)*(-+)' , '$1 '
+    
+	if ($ImageName -ne "" -and $CurrentImageName -ne $ImageName)
     {
         continue
     }

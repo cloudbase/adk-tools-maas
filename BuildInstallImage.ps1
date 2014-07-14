@@ -22,7 +22,7 @@ Param(
 $ErrorActionPreference = "Stop"
 
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
-Import-Module "$scriptPath\WimFileInfo.ps1"
+Import-Module "$scriptPath\WimFileInfo.psm1"
 
 $pe_src       = "$WinPEFolder\src"
 $pe_drivers   = "$WinPEFolder\src\drivers"
